@@ -277,7 +277,7 @@ jobs:
             
             ### ✨ Features
             - Alpine Linux base for smaller, more secure images
-            - Pre-installed UV package manager (v0.9.5)
+            - Pre-installed UV package manager
             - Shell entrypoint for complex startup commands
             - Non-root container user for security
             - Multi-platform support (linux/amd64, linux/arm64)
