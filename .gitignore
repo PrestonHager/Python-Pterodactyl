@@ -1,5 +1,15 @@
 # Python UV Pterodactyl Egg - Git Ignore
 
+# Generated egg configuration files (download from GitHub releases instead)
+python-uv-egg-*.json
+python-uv-egg-custom-images.json
+python-uv-egg-simple.json
+python-uv-egg-github-actions.json
+
+# Build artifacts
+build/python-uv-egg-*.json
+build/*.log
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -22,7 +32,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
