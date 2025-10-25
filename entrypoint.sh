@@ -49,5 +49,6 @@ PARSED=$(echo "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
 # from the container itself.
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
 
-# Execute the parsed command directly
-eval "${PARSED}"
+# Execute the parsed command using exec to replace the shell process
+# This ensures proper signal handling and process management
+exec /bin/ash -c "${PARSED}"
