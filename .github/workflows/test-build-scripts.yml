@@ -1,0 +1,83 @@
+name: Test Build Scripts
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'bugfix/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-build-scripts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test build script syntax
+        run: |
+          echo "Testing build script syntax..."
+          bash -n build-images.sh
+          bash -n test-images.sh
+          echo "✅ All scripts have valid syntax"
+
+      - name: Test build script help
+        run: |
+          echo "Testing build script help output..."
+          ./build-images.sh --help
+          echo "✅ Build script help works"
+
+      - name: Test test script help
+        run: |
+          echo "Testing test script help output..."
+          ./test-images.sh help
+          echo "✅ Test script help works"
+
+      - name: Validate Dockerfile
+        run: |
+          echo "Validating Dockerfile..."
+          docker buildx build --dry-run .
+          echo "✅ Dockerfile is valid"
+
+      - name: Check entrypoint script
+        run: |
+          echo "Checking entrypoint script..."
+          bash -n entrypoint.sh
+          echo "✅ Entrypoint script syntax is valid"
+
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files..."
+          python3 -m json.tool python-uv-egg-simple.json > /dev/null
+          echo "✅ python-uv-egg-simple.json is valid JSON"
+          
+          if [ -f "python-uv-egg-custom-images.json" ]; then
+            python3 -m json.tool python-uv-egg-custom-images.json > /dev/null
+            echo "✅ python-uv-egg-custom-images.json is valid JSON"
+          fi
+
+      - name: Test single image build (Python 3.11)
+        run: |
+          echo "Testing single image build..."
+          docker build --build-arg PYTHON_VERSION=3.11 --tag test-python-uv:3.11 .
+          
+          echo "Testing built image..."
+          docker run --rm test-python-uv:3.11 python --version
+          docker run --rm test-python-uv:3.11 uv --version
+          docker run --rm -e STARTUP="echo 'Test successful'" test-python-uv:3.11
+          
+          echo "✅ Single image build and test successful"
+
+      - name: Cleanup test images
+        if: always()
+        run: |
+          echo "Cleaning up test images..."
+          docker rmi test-python-uv:3.11 || true
+          docker system prune -f || true

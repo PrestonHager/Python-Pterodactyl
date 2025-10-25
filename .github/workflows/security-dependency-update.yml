@@ -1,0 +1,129 @@
+name: Security and Dependency Updates
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner on Dockerfile
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  dependency-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Docker base image updates
+        run: |
+          echo "Checking for Python Alpine base image updates..."
+          
+          # Get latest Python versions
+          echo "Latest Python versions available:"
+          curl -s https://registry.hub.docker.com/v2/repositories/library/python/tags/ | \
+            jq -r '.results[] | select(.name | test("^[0-9]+\\.[0-9]+-alpine$")) | .name' | \
+            sort -V | tail -10
+          
+          echo ""
+          echo "Current versions in Dockerfile:"
+          grep "FROM python:" Dockerfile || echo "No Python base image found"
+
+      - name: Check UV version
+        run: |
+          echo "Checking latest UV version..."
+          LATEST_UV=$(curl -s https://api.github.com/repos/astral-sh/uv/releases/latest | jq -r '.tag_name')
+          echo "Latest UV version: $LATEST_UV"
+          
+          # Check if we're using the latest version
+          CURRENT_UV=$(grep -o 'uv [0-9]\+\.[0-9]\+\.[0-9]\+' Dockerfile || echo "Not found")
+          echo "Current UV version in Dockerfile: $CURRENT_UV"
+
+  create-update-issue:
+    runs-on: ubuntu-latest
+    needs: [security-scan, dependency-update]
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create or update dependency update issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            
+            // Check if an issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: 'dependencies,automated',
+              state: 'open'
+            });
+            
+            const existingIssue = issues.data.find(issue => 
+              issue.title.includes('Weekly Dependency Update')
+            );
+            
+            const issueBody = `## 🔄 Weekly Dependency Update - ${new Date().toISOString().split('T')[0]}
+            
+            This is an automated weekly check for dependency updates.
+            
+            ### 📋 Checklist
+            - [ ] Check Python Alpine base image updates
+            - [ ] Check UV package manager updates
+            - [ ] Review security scan results
+            - [ ] Update Dockerfile if needed
+            - [ ] Test updated images locally
+            - [ ] Create PR with updates
+            
+            ### 🔍 Security Scan
+            Security scan results are available in the GitHub Security tab.
+            
+            ### 📝 Notes
+            Add any specific notes about updates or issues found during the scan.
+            
+            ---
+            *This issue is automatically created and should be closed when updates are complete.*`;
+            
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existingIssue.number,
+                body: issueBody
+              });
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner,
+                repo,
+                title: `Weekly Dependency Update - ${new Date().toISOString().split('T')[0]}`,
+                body: issueBody,
+                labels: ['dependencies', 'automated', 'maintenance']
+              });
+              console.log(`Created new issue #${issue.data.number}`);
+            }

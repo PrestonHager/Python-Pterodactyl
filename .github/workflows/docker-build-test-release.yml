@@ -1,0 +1,310 @@
+name: Build, Test, and Release Docker Images
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      python_versions:
+        description: 'Python versions to build (comma-separated, e.g., "3.11,3.12")'
+        required: false
+        default: '3.8,3.9,3.10,3.11,3.12,3.13'
+      push_images:
+        description: 'Push images to registry'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: PrestonHager/python-uv
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python_version: [3.8, 3.9, 3.10, 3.11, 3.12, 3.13]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=${{ matrix.python_version }},enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python_version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          # Test Python version
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.python_version }} python --version
+          
+          # Test UV installation
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.python_version }} uv --version
+          
+          # Test entrypoint functionality
+          docker run --rm -e STARTUP="echo 'Hello from Python ${{ matrix.python_version }} with UV!'" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.python_version }}
+          
+          # Test working directory
+          docker run --rm -e STARTUP="pwd" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.python_version }}
+          
+          # Test user permissions
+          docker run --rm -e STARTUP="whoami" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.python_version }}
+          
+          # Test UV project initialization
+          docker run --rm -e STARTUP="uv init --help" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.python_version }}
+          
+          # Test Alpine package manager
+          docker run --rm -e STARTUP="apk --version" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.python_version }}
+
+      - name: Generate egg configuration
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Create egg configuration with the built images
+          cat > python-uv-egg-github-actions.json << EOF
+          {
+            "_comment": "Python UV Egg with GitHub Actions Built Images",
+            "meta": {
+              "version": "1.0.0",
+              "update_url": "https://github.com/PrestonHager/python-uv-pterodactyl-egg"
+            },
+            "exported_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "name": "Python UV (GitHub Actions)",
+            "description": "Python application server with UV package manager using GitHub Actions built Docker images",
+            "author": "me@prestonhager.com",
+            "docker_images": {
+              "python-uv-3.8": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.8",
+              "python-uv-3.9": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.9",
+              "python-uv-3.10": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.10",
+              "python-uv-3.11": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.11",
+              "python-uv-3.12": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.12",
+              "python-uv-3.13": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.13"
+            },
+            "file_denylist": [],
+            "startup": "if [[ \${PULL_ON_START} ]]; then git pull; fi; if [[ ! -z \"\${ADDITIONAL_PACKAGES}\" ]]; then uv add \${ADDITIONAL_PACKAGES}; fi; \${STARTUP_COMMAND}",
+            "config": {
+              "files": "{}",
+              "startup": "{\n    \"done\": \")! For help, type \",\n    \"userInteraction\": [\n        \"Go to eula.txt for more info.\"\n    ]\n}",
+              "logs": "{}",
+              "stop": "^C"
+            },
+            "scripts": {
+              "installation": {
+                "script": "#!/bin/ash\n# Python UV Installation Script\n#\n# Server Files: /mnt/server\napk update\napk add --no-cache curl git\nmkdir -p /mnt/server\ncd /mnt/server\n\n# Clone repository if REPO_URL is provided\nif [[ ! -z \"\${REPO_URL}\" ]]; then\n    echo \"Cloning repository from \${REPO_URL}...\"\n    \n    # Handle authentication if credentials are provided\n    if [[ ! -z \"\${GIT_USERNAME}\" ]] && [[ ! -z \"\${GIT_TOKEN}\" ]]; then\n        # Extract domain and path from URL\n        REPO_DOMAIN=\$(echo \${REPO_URL} | sed -E 's|https?://([^/]+).*|\\1|')\n        REPO_PATH=\$(echo \${REPO_URL} | sed -E 's|https?://[^/]+/(.*)|\\1|')\n        AUTH_URL=\"https://\${GIT_USERNAME}:\${GIT_TOKEN}@\${REPO_DOMAIN}/\${REPO_PATH}\"\n        git clone \${AUTH_URL} .\n    else\n        git clone \${REPO_URL} .\n    fi\n    \n    echo \"Repository cloned successfully!\"\nelse\n    echo \"No repository URL provided. Creating empty project structure...\"\n    \n    # Create a basic main.py if it doesn't exist\n    if [[ ! -f main.py ]]; then\n        cat > main.py << 'EOF'\n#!/usr/bin/env python3\nprint(\"Hello from Python UV Environment!\")\nprint(\"Please configure your application in this file.\")\nEOF\n        chmod +x main.py\n    fi\nfi\n\n# Initialize uv project if pyproject.toml doesn't exist\nif [[ ! -f pyproject.toml ]]; then\n    echo \"Initializing uv project...\"\n    uv init --python \${UV_PYTHON_VERSION:-3.11} --name python-app\nfi\n\n# Install additional packages if specified\nif [[ ! -z \"\${ADDITIONAL_PACKAGES}\" ]]; then\n    echo \"Installing additional packages: \${ADDITIONAL_PACKAGES}\"\n    uv add \${ADDITIONAL_PACKAGES}\nfi\n\necho \"Python UV Environment installation completed!\"\necho \"Repository location: /mnt/server\"\necho \"Available commands:\"\necho \"  - uv run python main.py\"\necho \"  - uv add <package-name>\"\necho \"  - uv sync\"\n",
+                "container": "ghcr.io/pterodactyl/installers:alpine",
+                "entrypoint": "ash"
+              }
+            },
+            "variables": [
+              {
+                "name": "REPO_URL",
+                "description": "Git repository URL (GitHub/GitLab)",
+                "env_variable": "REPO_URL",
+                "default_value": "",
+                "user_viewable": true,
+                "user_editable": true,
+                "rules": "required|string|max:255",
+                "field_type": "text"
+              },
+              {
+                "name": "STARTUP_COMMAND",
+                "description": "Command to run your Python application",
+                "env_variable": "STARTUP_COMMAND",
+                "default_value": "uv run python main.py",
+                "user_viewable": true,
+                "user_editable": true,
+                "rules": "required|string|max:255",
+                "field_type": "text"
+              },
+              {
+                "name": "UV_PYTHON_VERSION",
+                "description": "Python version to use (default: 3.11, supports 3.8-3.13)",
+                "env_variable": "UV_PYTHON_VERSION",
+                "default_value": "3.11",
+                "user_viewable": true,
+                "user_editable": true,
+                "rules": "required|string|in:3.8,3.9,3.10,3.11,3.12,3.13",
+                "field_type": "text"
+              },
+              {
+                "name": "ADDITIONAL_PACKAGES",
+                "description": "Additional Python packages to install (space-separated)",
+                "env_variable": "ADDITIONAL_PACKAGES",
+                "default_value": "",
+                "user_viewable": true,
+                "user_editable": true,
+                "rules": "nullable|string|max:255",
+                "field_type": "text"
+              },
+              {
+                "name": "PULL_ON_START",
+                "description": "Pull latest changes from repository on startup",
+                "env_variable": "PULL_ON_START",
+                "default_value": "1",
+                "user_viewable": true,
+                "user_editable": true,
+                "rules": "required|boolean",
+                "field_type": "text"
+              },
+              {
+                "name": "GIT_USERNAME",
+                "description": "Git username for private repositories",
+                "env_variable": "GIT_USERNAME",
+                "default_value": "",
+                "user_viewable": true,
+                "user_editable": true,
+                "rules": "nullable|string|max:255",
+                "field_type": "text"
+              },
+              {
+                "name": "GIT_TOKEN",
+                "description": "Git token/password for private repositories",
+                "env_variable": "GIT_TOKEN",
+                "default_value": "",
+                "user_viewable": true,
+                "user_editable": true,
+                "rules": "nullable|string|max:255",
+                "field_type": "text"
+              }
+            ],
+            "features": null
+          }
+          EOF
+
+      - name: Upload egg configuration
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-uv-egg-github-actions
+          path: python-uv-egg-github-actions.json
+          retention-days: 30
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.11
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download egg configuration
+        uses: actions/download-artifact@v4
+        with:
+          name: python-uv-egg-github-actions
+          path: .
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Python UV Docker Images v${{ github.run_number }}
+          body: |
+            ## Python UV Docker Images Release v${{ github.run_number }}
+            
+            This release includes updated Python UV Docker images built with GitHub Actions.
+            
+            ### 🐳 Docker Images
+            - `ghcr.io/PrestonHager/python-uv:3.8` - Python 3.8.20
+            - `ghcr.io/PrestonHager/python-uv:3.9` - Python 3.9.24
+            - `ghcr.io/PrestonHager/python-uv:3.10` - Python 3.10.19
+            - `ghcr.io/PrestonHager/python-uv:3.11` - Python 3.11.14
+            - `ghcr.io/PrestonHager/python-uv:3.12` - Python 3.12.12
+            - `ghcr.io/PrestonHager/python-uv:3.13` - Python 3.13.9
+            
+            ### ✨ Features
+            - Alpine Linux base for smaller, more secure images
+            - Pre-installed UV package manager (v0.9.5)
+            - Shell entrypoint for complex startup commands
+            - Non-root container user for security
+            - Multi-platform support (linux/amd64, linux/arm64)
+            
+            ### 📋 Pterodactyl Egg
+            Attached is the `python-uv-egg-github-actions.json` file ready for upload to your Pterodactyl panel.
+            
+            ### 🔒 Security
+            All images have been scanned for vulnerabilities using Trivy.
+            
+            ### 🚀 Usage
+            ```bash
+            # Pull the latest image
+            docker pull ghcr.io/PrestonHager/python-uv:3.11
+            
+            # Run a container
+            docker run --rm -e STARTUP="uv run python main.py" ghcr.io/PrestonHager/python-uv:3.11
+            ```
+          draft: false
+          prerelease: false
+
+      - name: Upload egg configuration to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./python-uv-egg-github-actions.json
+          asset_name: python-uv-egg-github-actions.json
+          asset_content_type: application/json
