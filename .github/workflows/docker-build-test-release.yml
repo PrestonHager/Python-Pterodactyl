@@ -19,7 +19,7 @@ on:
       python_versions:
         description: 'Python versions to build (comma-separated, e.g., "3.11,3.12")'
         required: false
-        default: '3.8,3.9,3.10,3.11,3.12,3.13'
+        default: '3.8,3.9,3.10,3.11,3.12,3.13,3.14'
       push_images:
         description: 'Push images to registry'
         required: false
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python_version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python_version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     
     steps:
       - name: Checkout code
@@ -109,7 +109,7 @@ jobs:
           docker run --rm -e STARTUP="apk --version" $IMAGE_REF
 
       - name: Generate egg configuration
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && matrix.python_version == '3.14'
         run: |
           # Create egg configuration with the built images
           cat > python-uv-egg-github-actions.json << EOF
@@ -129,7 +129,8 @@ jobs:
               "python-uv-3.10": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.10",
               "python-uv-3.11": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.11",
               "python-uv-3.12": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.12",
-              "python-uv-3.13": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.13"
+              "python-uv-3.13": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.13",
+              "python-uv-3.14": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.14"
             },
             "file_denylist": [],
             "startup": "if [[ \${PULL_ON_START} ]]; then git pull; fi; if [[ ! -z \"\${ADDITIONAL_PACKAGES}\" ]]; then uv add \${ADDITIONAL_PACKAGES}; fi; \${STARTUP_COMMAND}",
@@ -169,12 +170,12 @@ jobs:
               },
               {
                 "name": "UV_PYTHON_VERSION",
-                "description": "Python version to use (default: 3.11, supports 3.8-3.13)",
+                "description": "Python version to use (default: 3.14, supports 3.8-3.14)",
                 "env_variable": "UV_PYTHON_VERSION",
-                "default_value": "3.11",
+                "default_value": "3.14",
                 "user_viewable": true,
                 "user_editable": true,
-                "rules": "required|string|in:3.8,3.9,3.10,3.11,3.12,3.13",
+                "rules": "required|string|in:3.8,3.9,3.10,3.11,3.12,3.13,3.14",
                 "field_type": "text"
               },
               {
@@ -223,7 +224,7 @@ jobs:
           EOF
 
       - name: Upload egg configuration
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && matrix.python_version == '3.14'
         uses: actions/upload-artifact@v4
         with:
           name: python-uv-egg-github-actions
@@ -287,6 +288,7 @@ jobs:
             - `ghcr.io/PrestonHager/python-uv:3.11` - Python 3.11.x
             - `ghcr.io/PrestonHager/python-uv:3.12` - Python 3.12.x
             - `ghcr.io/PrestonHager/python-uv:3.13` - Python 3.13.x
+            - `ghcr.io/PrestonHager/python-uv:3.14` - Python 3.14.x
             
             ### ✨ Features
             - Alpine Linux base for smaller, more secure images
@@ -304,10 +306,10 @@ jobs:
             ### 🚀 Usage
             ```bash
             # Pull the latest image
-            docker pull ghcr.io/PrestonHager/python-uv:3.11
+            docker pull ghcr.io/PrestonHager/python-uv:3.14
             
             # Run a container
-            docker run --rm -e STARTUP="uv run python main.py" ghcr.io/PrestonHager/python-uv:3.11
+            docker run --rm -e STARTUP="uv run python main.py" ghcr.io/PrestonHager/python-uv:3.14
             ```
           draft: false
           prerelease: false
