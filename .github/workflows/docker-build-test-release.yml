@@ -4,7 +4,6 @@ permissions:
   contents: write
   packages: write
   security-events: write
-  pull-requests: write
 
 on:
   push:
