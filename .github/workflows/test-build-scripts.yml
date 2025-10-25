@@ -43,7 +43,7 @@ jobs:
       - name: Validate Dockerfile
         run: |
           echo "Validating Dockerfile..."
-          docker buildx build --dry-run .
+          docker buildx build --target=build --tag=test-validation .
           echo "✅ Dockerfile is valid"
 
       - name: Check entrypoint script
