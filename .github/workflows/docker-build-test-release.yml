@@ -3,7 +3,7 @@ name: Build, Test, and Release Docker Images
 permissions:
   contents: read
   packages: write
-  security-events: read
+  security-events: write
 
 on:
   push:
@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       python_versions:
-        description: 'Python versions to build (comma-separated, e.g., "3.11,3.12")'
+        description: 'Python versions to build (comma-separated, e.g., "3.13,3.14")'
         required: false
         default: '3.8,3.9,3.10,3.11,3.12,3.13,3.14'
       push_images:
@@ -244,7 +244,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.11
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:3.14
           format: 'sarif'
           output: 'trivy-results.sarif'
 
