@@ -1,7 +1,7 @@
 name: Build, Test, and Release Docker Images
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   security-events: write
 
@@ -165,56 +165,50 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        run: |
+          gh release create "v${{ github.run_number }}" \
+            --title "Python UV Docker Images v${{ github.run_number }}" \
+            --notes "## Python UV Docker Images Release v${{ github.run_number }}
+            
+          This release includes updated Python UV Docker images built with GitHub Actions.
+          
+          ### 🐳 Docker Images
+          - \`ghcr.io/PrestonHager/python-uv:3.8\` - Python 3.8.x
+          - \`ghcr.io/PrestonHager/python-uv:3.9\` - Python 3.9.x
+          - \`ghcr.io/PrestonHager/python-uv:3.10\` - Python 3.10.x
+          - \`ghcr.io/PrestonHager/python-uv:3.11\` - Python 3.11.x
+          - \`ghcr.io/PrestonHager/python-uv:3.12\` - Python 3.12.x
+          - \`ghcr.io/PrestonHager/python-uv:3.13\` - Python 3.13.x
+          - \`ghcr.io/PrestonHager/python-uv:3.14\` - Python 3.14.x
+          
+          ### ✨ Features
+          - Alpine Linux base for smaller, more secure images
+          - Pre-installed UV package manager
+          - Shell entrypoint for complex startup commands
+          - Non-root container user for security
+          - Multi-platform support (linux/amd64, linux/arm64)
+          
+          ### 📋 Pterodactyl Egg
+          Attached is the \`python-uv-egg-github-actions.json\` file ready for upload to your Pterodactyl panel.
+          
+          ### 🔒 Security
+          All images have been scanned for vulnerabilities using Trivy.
+          
+          ### 🚀 Usage
+          \`\`\`bash
+          # Pull the latest image
+          docker pull ghcr.io/PrestonHager/python-uv:3.14
+          
+          # Run a container
+          docker run --rm -e STARTUP=\"uv run python main.py\" ghcr.io/PrestonHager/python-uv:3.14
+          \`\`\`"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: Python UV Docker Images v${{ github.run_number }}
-          body: |
-            ## Python UV Docker Images Release v${{ github.run_number }}
-            
-            This release includes updated Python UV Docker images built with GitHub Actions.
-            
-            ### 🐳 Docker Images
-            - `ghcr.io/PrestonHager/python-uv:3.8` - Python 3.8.x
-            - `ghcr.io/PrestonHager/python-uv:3.9` - Python 3.9.x
-            - `ghcr.io/PrestonHager/python-uv:3.10` - Python 3.10.x
-            - `ghcr.io/PrestonHager/python-uv:3.11` - Python 3.11.x
-            - `ghcr.io/PrestonHager/python-uv:3.12` - Python 3.12.x
-            - `ghcr.io/PrestonHager/python-uv:3.13` - Python 3.13.x
-            - `ghcr.io/PrestonHager/python-uv:3.14` - Python 3.14.x
-            
-            ### ✨ Features
-            - Alpine Linux base for smaller, more secure images
-            - Pre-installed UV package manager
-            - Shell entrypoint for complex startup commands
-            - Non-root container user for security
-            - Multi-platform support (linux/amd64, linux/arm64)
-            
-            ### 📋 Pterodactyl Egg
-            Attached is the `python-uv-egg-github-actions.json` file ready for upload to your Pterodactyl panel.
-            
-            ### 🔒 Security
-            All images have been scanned for vulnerabilities using Trivy.
-            
-            ### 🚀 Usage
-            ```bash
-            # Pull the latest image
-            docker pull ghcr.io/PrestonHager/python-uv:3.14
-            
-            # Run a container
-            docker run --rm -e STARTUP="uv run python main.py" ghcr.io/PrestonHager/python-uv:3.14
-            ```
-          draft: false
-          prerelease: false
 
       - name: Upload egg configuration to release
-        uses: actions/upload-release-asset@v1
+        run: |
+          gh release upload "v${{ github.run_number }}" \
+            python-uv-egg-github-actions.json \
+            --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./python-uv-egg-github-actions.json
-          asset_name: python-uv-egg-github-actions.json
-          asset_content_type: application/json
