@@ -55,12 +55,25 @@ jobs:
       - name: Validate JSON files
         run: |
           echo "Validating JSON files..."
+          
+          echo "Checking python-uv-egg-simple.json..."
           python3 -m json.tool python-uv-egg-simple.json > /dev/null
           echo "✅ python-uv-egg-simple.json is valid JSON"
           
           if [ -f "python-uv-egg-custom-images.json" ]; then
+            echo "Checking python-uv-egg-custom-images.json..."
             python3 -m json.tool python-uv-egg-custom-images.json > /dev/null
             echo "✅ python-uv-egg-custom-images.json is valid JSON"
+          else
+            echo "ℹ️ python-uv-egg-custom-images.json not found (this is normal)"
+          fi
+          
+          if [ -f "python-uv-egg-github-actions.json" ]; then
+            echo "Checking python-uv-egg-github-actions.json..."
+            python3 -m json.tool python-uv-egg-github-actions.json > /dev/null
+            echo "✅ python-uv-egg-github-actions.json is valid JSON"
+          else
+            echo "ℹ️ python-uv-egg-github-actions.json not found (this is normal)"
           fi
 
       - name: Test single image build (Python 3.11)
