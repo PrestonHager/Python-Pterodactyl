@@ -150,7 +150,7 @@ jobs:
                 "default_value": "",
                 "user_viewable": true,
                 "user_editable": true,
-                "rules": "required|string|max:255",
+                "rules": "nullable|string|max:255",
                 "field_type": "text"
               },
               {
@@ -276,16 +276,16 @@ jobs:
             This release includes updated Python UV Docker images built with GitHub Actions.
             
             ### 🐳 Docker Images
-            - `ghcr.io/PrestonHager/python-uv:3.8` - Python 3.8.20
-            - `ghcr.io/PrestonHager/python-uv:3.9` - Python 3.9.24
-            - `ghcr.io/PrestonHager/python-uv:3.10` - Python 3.10.19
-            - `ghcr.io/PrestonHager/python-uv:3.11` - Python 3.11.14
-            - `ghcr.io/PrestonHager/python-uv:3.12` - Python 3.12.12
-            - `ghcr.io/PrestonHager/python-uv:3.13` - Python 3.13.9
+            - `ghcr.io/PrestonHager/python-uv:3.8` - Python 3.8.x
+            - `ghcr.io/PrestonHager/python-uv:3.9` - Python 3.9.x
+            - `ghcr.io/PrestonHager/python-uv:3.10` - Python 3.10.x
+            - `ghcr.io/PrestonHager/python-uv:3.11` - Python 3.11.x
+            - `ghcr.io/PrestonHager/python-uv:3.12` - Python 3.12.x
+            - `ghcr.io/PrestonHager/python-uv:3.13` - Python 3.13.x
             
             ### ✨ Features
             - Alpine Linux base for smaller, more secure images
-            - Pre-installed UV package manager (v0.9.5)
+            - Pre-installed UV package manager
             - Shell entrypoint for complex startup commands
             - Non-root container user for security
             - Multi-platform support (linux/amd64, linux/arm64)
