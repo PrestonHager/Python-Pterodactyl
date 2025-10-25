@@ -24,20 +24,20 @@ jobs:
       - name: Test build script syntax
         run: |
           echo "Testing build script syntax..."
-          bash -n build-images.sh
-          bash -n test-images.sh
+          bash -n build/build-images.sh
+          bash -n build/test-images.sh
           echo "✅ All scripts have valid syntax"
 
       - name: Test build script help
         run: |
           echo "Testing build script help output..."
-          ./build-images.sh --help
+          ./build/build-images.sh --help
           echo "✅ Build script help works"
 
       - name: Test test script help
         run: |
           echo "Testing test script help output..."
-          ./test-images.sh help
+          ./build/test-images.sh help
           echo "✅ Test script help works"
 
       - name: Validate Dockerfile
