@@ -6,7 +6,7 @@
   },
   "exported_at": "2025-10-24T20:00:00+00:00",
   "name": "Python UV Environment",
-  "author": "prestonh@prestonhager.com",
+  "author": "me@prestonhager.com",
   "description": "A Python environment using uv package manager with Git repository integration. Supports GitHub/GitLab repositories with authentication, automatic dependency installation, and flexible startup options.",
   "features": null,
   "docker_images": {
@@ -118,7 +118,7 @@
       "description": "Internal startup command (do not modify)",
       "env_variable": "STARTUP_COMMAND",
       "default_value": "./start.sh",
-      "user_viewable": false,
+      "user_viewable": true,
       "user_editable": false,
       "rules": "required|string",
       "field_type": "text"
