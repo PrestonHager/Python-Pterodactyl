@@ -142,7 +142,7 @@ jobs:
                 "default_value": "",
                 "user_viewable": true,
                 "user_editable": true,
-                "rules": "required|string|max:255",
+                "rules": "nullable|string|max:255",
                 "field_type": "text"
               },
               {
