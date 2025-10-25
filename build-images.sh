@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 #
 # Build script for Python UV Docker images
-# Generates Docker images for Python versions 3.8 through 3.13
+# Generates Docker images for Python versions 3.8 through 3.14
 #
 
 set -e
 
+# Set Docker socket for rootless Docker
+export DOCKER_HOST="unix:///run/user/1000/docker.sock"
+
 # Configuration
-REGISTRY="${REGISTRY:-ghcr.io/PrestonHager}"
+REGISTRY="${REGISTRY:-ghcr.io/prestonhager}"
 IMAGE_NAME="${IMAGE_NAME:-python-uv}"
 TAG_PREFIX="${TAG_PREFIX:-}"
+CONFIG_ONLY="${CONFIG_ONLY:-false}"
 
-# Python versions to build
-PYTHON_VERSIONS=(3.8 3.9 3.10 3.11 3.12 3.13)
+# Python versions to build (latest first)
+PYTHON_VERSIONS=(3.14 3.13 3.12 3.11 3.10 3.9 3.8)
 
 # Colors for output
 RED='\033[0;31m'
@@ -57,6 +61,9 @@ check_docker() {
 build_image() {
     local python_version=$1
     local image_tag="${REGISTRY}/${IMAGE_NAME}:${TAG_PREFIX}${python_version}"
+    
+    # Set Docker socket for rootless Docker
+    export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
     
     log_info "Building image for Python ${python_version}..."
     log_info "Image tag: ${image_tag}"
@@ -140,13 +147,14 @@ generate_egg_config() {
 {
   "_comment": "Python UV Egg with Custom Docker Images",
   "meta": {
-    "version": "1.0.0",
-    "update_url": "https://github.com/prestonh/python-uv-pterodactyl-egg"
+    "version": "PTDL_v2",
+    "update_url": null
   },
-  "exported_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "exported_at": "$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")",
   "name": "Python UV (Custom Images)",
+  "author": "me@prestonhager.com",
   "description": "Python application server with UV package manager using custom Docker images",
-  "author": "prestonh@prestonhager.com",
+  "features": null,
   "docker_images": {
 EOF
 
@@ -164,13 +172,13 @@ EOF
   "startup": "if [[ \${PULL_ON_START} ]]; then git pull; fi; if [[ ! -z \"\${ADDITIONAL_PACKAGES}\" ]]; then uv add \${ADDITIONAL_PACKAGES}; fi; \${STARTUP_COMMAND}",
   "config": {
     "files": "{}",
-    "startup": "{\n    \"done\": \")! For help, type \",\n    \"userInteraction\": [\n        \"Go to eula.txt for more info.\"\n    ]\n}",
+    "startup": "{\\n    \\"done\\": \\")! For help, type \\",\\n    \\"userInteraction\\": [\\n        \\"Go to eula.txt for more info.\\"\\n    ]\\n}",
     "logs": "{}",
     "stop": "^C"
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/ash\n# Python UV Installation Script\n#\n# Server Files: /mnt/server\napk update\napk add --no-cache curl git\nmkdir -p /mnt/server\ncd /mnt/server\n\n# Clone repository if REPO_URL is provided\nif [[ ! -z \"\${REPO_URL}\" ]]; then\n    echo \"Cloning repository from \${REPO_URL}...\"\n    \n    # Handle authentication if credentials are provided\n    if [[ ! -z \"\${GIT_USERNAME}\" ]] && [[ ! -z \"\${GIT_TOKEN}\" ]]; then\n        # Extract domain and path from URL\n        REPO_DOMAIN=\$(echo \${REPO_URL} | sed -E 's|https?://([^/]+).*|\\1|')\n        REPO_PATH=\$(echo \${REPO_URL} | sed -E 's|https?://[^/]+/(.*)|\\1|')\n        AUTH_URL=\"https://\${GIT_USERNAME}:\${GIT_TOKEN}@\${REPO_DOMAIN}/\${REPO_PATH}\"\n        git clone \${AUTH_URL} .\n    else\n        git clone \${REPO_URL} .\n    fi\n    \n    echo \"Repository cloned successfully!\"\nelse\n    echo \"No repository URL provided. Creating empty project structure...\"\n    \n    # Create a basic main.py if it doesn't exist\n    if [[ ! -f main.py ]]; then\n        cat > main.py << 'EOF'\n#!/usr/bin/env python3\nprint(\"Hello from Python UV Environment!\")\nprint(\"Please configure your application in this file.\")\nEOF\n        chmod +x main.py\n    fi\nfi\n\n# Initialize uv project if pyproject.toml doesn't exist\nif [[ ! -f pyproject.toml ]]; then\n    echo \"Initializing uv project...\"\n    uv init --python \${UV_PYTHON_VERSION:-3.11} --name python-app\nfi\n\n# Install additional packages if specified\nif [[ ! -z \"\${ADDITIONAL_PACKAGES}\" ]]; then\n    echo \"Installing additional packages: \${ADDITIONAL_PACKAGES}\"\n    uv add \${ADDITIONAL_PACKAGES}\nfi\n\necho \"Python UV Environment installation completed!\"\necho \"Repository location: /mnt/server\"\necho \"Available commands:\"\necho \"  - uv run python main.py\"\necho \"  - uv add <package-name>\"\necho \"  - uv sync\"\n",
+      "script": "#!/bin/ash\n# Python UV Installation Script\n#\n# Server Files: /mnt/server\napk update\napk add --no-cache curl git\nmkdir -p /mnt/server\ncd /mnt/server\n\n# Clone repository if REPO_URL is provided\nif [[ ! -z \"\${REPO_URL}\" ]]; then\n    echo \"Cloning repository from \${REPO_URL}...\"\n    \n    # Handle authentication if credentials are provided\n    if [[ ! -z \"\${GIT_USERNAME}\" ]] && [[ ! -z \"\${GIT_TOKEN}\" ]]; then\n        # Extract domain and path from URL\n        REPO_DOMAIN=\$(echo \${REPO_URL} | sed -E 's|https?://([^/]+).*|\\\\1|')\n        REPO_PATH=\$(echo \${REPO_URL} | sed -E 's|https?://[^/]+/(.*)|\\\\1|')\n        AUTH_URL=\"https://\${GIT_USERNAME}:\${GIT_TOKEN}@\${REPO_DOMAIN}/\${REPO_PATH}\"\n        git clone \${AUTH_URL} .\n    else\n        git clone \${REPO_URL} .\n    fi\n    \n    echo \"Repository cloned successfully!\"\nelse\n    echo \"No repository URL provided. Creating empty project structure...\"\n    \n    # Create a basic main.py if it doesn't exist\n    if [[ ! -f main.py ]]; then\n        cat > main.py << 'EOF'\n#!/usr/bin/env python3\nprint(\"Hello from Python UV Environment!\")\nprint(\"Please configure your application in this file.\")\nEOF\n        chmod +x main.py\n    fi\nfi\n\n# Initialize uv project if pyproject.toml doesn't exist\nif [[ ! -f pyproject.toml ]]; then\n    echo \"Initializing uv project...\"\n    uv init --python \${UV_PYTHON_VERSION:-3.14} --name python-app\nfi\n\n# Install additional packages if specified\nif [[ ! -z \"\${ADDITIONAL_PACKAGES}\" ]]; then\n    echo \"Installing additional packages: \${ADDITIONAL_PACKAGES}\"\n    uv add \${ADDITIONAL_PACKAGES}\nfi\n\necho \"Python UV Environment installation completed!\"\necho \"Repository location: /mnt/server\"\necho \"Available commands:\"\necho \"  - uv run python main.py\"\necho \"  - uv add <package-name>\"\necho \"  - uv sync\"\n",
       "container": "ghcr.io/pterodactyl/installers:alpine",
       "entrypoint": "ash"
     }
@@ -183,7 +191,7 @@ EOF
       "default_value": "",
       "user_viewable": true,
       "user_editable": true,
-      "rules": "required|string|max:255",
+      "rules": "nullable|string|max:255",
       "field_type": "text"
     },
     {
@@ -198,12 +206,12 @@ EOF
     },
     {
       "name": "UV_PYTHON_VERSION",
-      "description": "Python version to use (default: 3.11, supports 3.8-3.13)",
+      "description": "Python version to use (default: 3.14, supports 3.8-3.14)",
       "env_variable": "UV_PYTHON_VERSION",
-      "default_value": "3.11",
+      "default_value": "3.14",
       "user_viewable": true,
       "user_editable": true,
-      "rules": "required|string|in:3.8,3.9,3.10,3.11,3.12,3.13",
+      "rules": "required|string|in:3.8,3.9,3.10,3.11,3.12,3.13,3.14",
       "field_type": "text"
     },
     {
@@ -246,8 +254,7 @@ EOF
       "rules": "nullable|string|max:255",
       "field_type": "text"
     }
-  ],
-  "features": null
+  ]
 }
 EOF
 
@@ -257,6 +264,14 @@ EOF
 # Main execution
 main() {
     log_info "Starting Python UV Docker image build process"
+    
+    if [[ "${CONFIG_ONLY}" == "true" ]]; then
+        log_info "Configuration-only mode: Generating egg configuration file"
+        generate_egg_config
+        log_success "Egg configuration generated: python-uv-egg-custom-images.json"
+        return 0
+    fi
+    
     log_info "Building images for Python versions: ${PYTHON_VERSIONS[*]}"
     
     # Check prerequisites
@@ -310,6 +325,7 @@ OPTIONS:
     -n, --name NAME            Image name (default: python-uv)
     -t, --tag-prefix PREFIX    Tag prefix (default: empty)
     -p, --push                 Push images to registry
+    -c, --config-only          Generate egg configuration file only (skip building images)
     -h, --help                 Show this help message
 
 ENVIRONMENT VARIABLES:
@@ -317,6 +333,7 @@ ENVIRONMENT VARIABLES:
     IMAGE_NAME                 Image name
     TAG_PREFIX                 Tag prefix
     PUSH_IMAGES                Set to 'true' to push images
+    CONFIG_ONLY                Set to 'true' to generate config only
 
 EXAMPLES:
     $0                                    # Build with defaults
@@ -344,6 +361,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -p|--push)
             PUSH_IMAGES="true"
+            shift
+            ;;
+        -c|--config-only)
+            CONFIG_ONLY="true"
             shift
             ;;
         -h|--help)

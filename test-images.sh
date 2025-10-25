@@ -6,6 +6,9 @@
 
 set -e
 
+# Set Docker socket for rootless Docker
+export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
+
 # Configuration
 REGISTRY="${REGISTRY:-ghcr.io/prestonh}"
 IMAGE_NAME="${IMAGE_NAME:-python-uv}"
