@@ -24,7 +24,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: PrestonHager/python-uv
+  IMAGE_NAME: prestonhager/python-uv
 
 jobs:
   build-and-test:
